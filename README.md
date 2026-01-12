@@ -4,15 +4,19 @@ A framework for training weather prediction models using **sequential temporal r
 
 ## Overview
 
-Unlike traditional supervised learning that trains on static shuffled datasets, this framework trains models to "live through" weather history chronologically. The model experiences each day from the earliest available data (1940-1950 with Open-Meteo ERA5/ERA5-Land) up to the present, learning and adapting as it goes.
+Unlike traditional supervised learning that trains on static shuffled datasets, this framework trains models to "live through" weather history chronologically. The model experiences each day from the earliest available data (1950 with Open-Meteo ERA5-Land) up to the present, learning and adapting as it goes.
+
+**The Core Concept**: Train a model to predict tomorrow's actual weather by learning from the relationship between forecasts (or reanalysis) and actual outcomes. By experiencing decades of weather patterns sequentially, the model learns temporal dynamics, seasonal cycles, and long-term climate trends.
 
 ### Key Features
 
-- **Sequential temporal training**: Model experiences weather history in chronological order
+- **Sequential temporal training**: Model experiences weather history in chronological order (1950 → 2024)
 - **Chronological causality**: Never sees future data when predicting the past
 - **Continual learning**: Can continue learning from live weather data in production
-- **Actor-critic RL**: Uses TD3-style training for continuous action spaces
-- **Multiple data sources**: Integrated with Open-Meteo Historical Forecast API
+- **Actor-critic RL**: Uses TD3-style training for continuous action spaces (weather predictions)
+- **Massive temporal coverage**: Up to 75 years of training data (1950-2024)
+- **Multiple configurations**: From low-memory (1 year) to historical (75 years)
+- **Free data access**: Open-Meteo Archive API, no API key required
 
 ## Project Structure
 
@@ -102,6 +106,14 @@ Configuration presets:
 - **ERA5** data from 1940 onwards (25km resolution)
 - **ERA5-Land** data from 1950 onwards (10km resolution, higher quality)
 
+**⚠️ Data Source Clarification**:
+- **Current implementation**: Uses ERA5 reanalysis data (modern weather models run on historical observations)
+- **Original concept**: Would use actual historical forecasts (what forecasters predicted in the 1980s, 1990s, etc.)
+- **Why it matters**: Reanalysis = perfect hindcasts. Historical forecasts = learning from the forecasting process itself
+- **Path forward**: ERA5 is excellent for initial development. Can integrate real historical forecasts from NOAA/ECMWF later
+
+See [CONCEPT.md](CONCEPT.md) for the full research vision.
+
 ## Model Architecture
 
 ```
@@ -127,30 +139,43 @@ Input (Historical Window)
 
 ## Training Approach
 
-The model trains **sequentially through time**:
+The model trains **sequentially through time**, experiencing weather history chronologically:
 
 ```python
-for year in [2016, 2017, ..., 2024]:
+for year in [1950, 1951, ..., 2024]:  # 75 years of history
     for day in year:
+        # Batch across locations for this calendar day
         for location in locations:
-            # Get historical context
+            # Get historical context (past 7 days)
             state = get_state(location, day, window=7)
+            # state includes: [reanalysis, actual] pairs for past week
 
-            # Model predicts tomorrow
+            # Model predicts tomorrow's weather
             prediction = model(state)
 
-            # Get actual weather
+            # Get actual weather that occurred
             actual = get_actual(location, day + 1)
 
-            # Calculate reward
+            # Calculate reward (negative error = higher reward for accuracy)
             reward = -mse(prediction, actual)
 
-            # Store and update
-            replay_buffer.add(state, prediction, reward)
+            # Optional: bonus for extreme events
+            if is_extreme(actual):
+                reward *= extreme_multiplier
 
-        # Batch update across locations
-        model.update(replay_buffer.sample(batch_size=40))
+            # Store experience
+            replay_buffer.add(state, prediction, reward, actual)
+
+        # Batch update across all locations for this day
+        # This parallelizes training while maintaining temporal order
+        batch = replay_buffer.sample(batch_size=40)
+        model.update(batch)
 ```
+
+**Key insight**: Rather than train one location through all 75 years sequentially, we batch across 40 locations per calendar day. This:
+- Maintains chronological order (critical for temporal causality)
+- Speeds up training dramatically (40x parallelization)
+- Allows model to learn spatial diversity alongside temporal patterns
 
 ## Hardware Requirements
 

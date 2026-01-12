@@ -129,9 +129,19 @@ class OpenMeteoClient:
         """
         Fetch forecast-actual pairs for verification.
 
+        IMPORTANT: Currently returns ERA5 reanalysis data, not historical forecasts.
+        - ERA5 reanalysis = modern weather models run on historical observations
+        - Historical forecasts = what forecasters actually predicted at the time
+
+        This is still valuable for learning weather prediction patterns, but differs
+        from the original concept of learning from the forecasting process itself.
+
+        Future enhancement: Integrate actual historical forecast data from NOAA/ECMWF
+        archives for periods where it's available (typically 1990s onwards).
+
         This is the key function for RL training - it gets pairs of:
-        - What was forecasted for day D
-        - What actually happened on day D
+        - What was forecasted/reanalyzed for day D (currently: ERA5 reanalysis)
+        - What actually happened on day D (observations)
 
         Args:
             latitude: Location latitude
