@@ -30,7 +30,11 @@ from src.utils import (
     save_config, format_time,
 )
 from src.memory import MemoryMonitor, print_memory_estimation
-from configs import Config, get_default_config, get_low_memory_config, get_production_config, get_24gb_config, get_extended_locations_config, auto_config
+from configs import (
+    Config, get_default_config, get_low_memory_config, get_production_config,
+    get_24gb_config, get_extended_locations_config, get_historical_config,
+    get_climate_config, auto_config
+)
 
 
 def parse_args():
@@ -47,16 +51,18 @@ Examples:
 Config presets:
   low_memory    3 locations, 1 year, ~500MB RAM (testing)
   default       10 locations, 5 years, ~4GB RAM
-  production    20 locations, 2016-2024, ~8GB RAM
+  production    20 locations, 2010-2024, ~8GB RAM
   24gb          20 locations, 2016-2024, ~24GB RAM (recommended for 32GB systems)
   extended      100+ locations, 2016-2024, ~24GB RAM
+  historical    20 locations, 1950-2024, ~32GB+ RAM (75 years of data!)
+  climate       20 locations, 1970-2024, ~32GB+ RAM (55 years, climate analysis)
         """
     )
 
     parser.add_argument(
         "--config", "-c",
         type=str,
-        choices=["default", "low_memory", "production", "24gb", "extended"],
+        choices=["default", "low_memory", "production", "24gb", "extended", "historical", "climate"],
         default="low_memory",
         help="Configuration preset to use",
     )
@@ -132,6 +138,8 @@ def main():
             "production": get_production_config,
             "24gb": get_24gb_config,
             "extended": get_extended_locations_config,
+            "historical": get_historical_config,
+            "climate": get_climate_config,
         }
         config = config_map[args.config]()
 

@@ -27,7 +27,7 @@ class DataConfig:
     ])
 
     # Training period
-    start_date: str = "2020-01-01"  # Open-Meteo has data from ~2016
+    start_date: str = "2020-01-01"  # Open-Meteo Archive API has data from 1940
     end_date: str = "2024-12-31"
 
     # Data options
@@ -165,8 +165,8 @@ def get_production_config() -> Config:
     from src.data.openmeteo import OpenMeteoClient
     config.data.locations = OpenMeteoClient.get_sample_locations()
 
-    # Longer training period
-    config.data.start_date = "2016-01-01"  # Open-Meteo start
+    # Extended training period (back to Open-Meteo's earliest available data)
+    config.data.start_date = "2010-01-01"  # Use 15 years of data
     config.data.end_date = "2024-12-31"
 
     # Larger model
@@ -207,7 +207,7 @@ def get_24gb_config() -> Config:
     from src.data.openmeteo import OpenMeteoClient
     config.data.locations = OpenMeteoClient.get_sample_locations()
 
-    # Full historical range from Open-Meteo (9 years of data)
+    # Full recent historical range (9 years of data)
     config.data.start_date = "2016-01-01"
     config.data.end_date = "2024-12-31"
 
@@ -271,6 +271,105 @@ def get_extended_locations_config() -> Config:
     config.data.locations = _get_extended_locations()
 
     return config
+
+
+def get_historical_config() -> Config:
+    """
+    Configuration using maximum available historical data (1950-2024).
+
+    Uses ERA5-Land data from 1950 onwards for 75 years of weather history.
+    This is ideal for:
+    - Long-term climate pattern analysis
+    - Multi-decadal trend learning
+    - Understanding seasonal variations across decades
+
+    Requires significant RAM (~32GB+) and training time.
+    """
+    config = get_24gb_config()
+
+    # Maximum historical range using ERA5-Land (1950 onwards)
+    config.data.start_date = "1950-01-01"
+    config.data.end_date = "2024-12-31"
+
+    # Adjust for longer training period
+    config.training.num_epochs = 2  # 2 passes through 75 years is already substantial
+    config.training.checkpoint_interval = 1825  # Checkpoint every 5 years
+
+    # Larger replay buffer to capture long-term patterns
+    config.training.replay_buffer_size = 20_000_000  # ~20GB
+
+    config.experiment_name = "rl_weather_historical_75yr"
+    config.training.checkpoint_dir = "checkpoints/historical"
+
+    return config
+
+
+def get_climate_config() -> Config:
+    """
+    Configuration optimized for climate-scale analysis (1970-2024).
+
+    Uses 55 years of data to study:
+    - Climate change impacts on weather patterns
+    - Decadal oscillations (El Niño, PDO, AMO)
+    - Long-term trend learning
+
+    Balanced between data coverage and computational feasibility.
+    """
+    config = get_24gb_config()
+
+    # Climate-relevant period (1970s onwards)
+    config.data.start_date = "1970-01-01"
+    config.data.end_date = "2024-12-31"
+
+    # Optimize for climate patterns
+    config.data.window_size = 30  # 30-day context for monthly patterns
+
+    # Training configuration
+    config.training.num_epochs = 3
+    config.training.checkpoint_interval = 730  # Checkpoint every 2 years
+
+    config.experiment_name = "rl_weather_climate_55yr"
+    config.training.checkpoint_dir = "checkpoints/climate"
+
+    return config
+
+
+def auto_config(target_gb: Optional[float] = None) -> Config:
+    """
+    Automatically configure based on available system memory.
+
+    Args:
+        target_gb: Target memory usage in GB. If None, uses 75% of available RAM.
+
+    Returns:
+        Config tuned for available memory
+    """
+    import psutil
+
+    # Get available memory
+    mem = psutil.virtual_memory()
+    available_gb = mem.available / (1024**3)
+    total_gb = mem.total / (1024**3)
+
+    if target_gb is None:
+        target_gb = total_gb * 0.75  # Use 75% of total RAM
+
+    print(f"System RAM: {total_gb:.1f} GB total, {available_gb:.1f} GB available")
+    print(f"Target usage: {target_gb:.1f} GB")
+
+    # Select config based on target
+    if target_gb >= 24:
+        print("Using 24GB configuration")
+        return get_24gb_config()
+    elif target_gb >= 8:
+        print("Using production configuration")
+        return get_production_config()
+    elif target_gb >= 4:
+        print("Using default configuration")
+        return get_default_config()
+    else:
+        print("Using low memory configuration")
+        return get_low_memory_config()
 
 
 def _get_extended_locations() -> List[Dict]:

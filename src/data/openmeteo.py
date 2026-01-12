@@ -1,12 +1,13 @@
 """
 Open-Meteo API client for historical weather forecasts and observations.
 
-API Documentation: https://open-meteo.com/en/docs/historical-forecast-api
+API Documentation: https://open-meteo.com/en/docs/historical-weather-api
 
-The Historical Forecast API provides:
-- Archived weather model forecasts (what was predicted)
+The Historical Weather API (Archive API) provides:
+- ERA5 reanalysis data from 1940 onwards (80+ years of data)
+- ERA5-Land data from 1950 onwards (higher resolution)
 - Actual observations (what actually happened)
-- Global coverage back to 2016 for ECMWF model
+- Global coverage at 10-25km resolution
 - Various weather variables: temperature, precipitation, wind, etc.
 
 Example usage:
@@ -28,12 +29,14 @@ import pandas as pd
 
 class OpenMeteoClient:
     """
-    Client for Open-Meteo Historical Forecast API.
+    Client for Open-Meteo Archive API (Historical Weather).
 
     Provides free access to:
-    - ECMWF (ERA5) forecasts from 2016 onwards
+    - ERA5 reanalysis data from 1940 onwards (80+ years)
+    - ERA5-Land data from 1950 onwards (higher resolution)
     - Actual observations for comparison
     - No API key required
+    - Global coverage at 10-25km resolution
     """
 
     BASE_URL = "https://archive-api.open-meteo.com/v1"
@@ -126,9 +129,19 @@ class OpenMeteoClient:
         """
         Fetch forecast-actual pairs for verification.
 
+        IMPORTANT: Currently returns ERA5 reanalysis data, not historical forecasts.
+        - ERA5 reanalysis = modern weather models run on historical observations
+        - Historical forecasts = what forecasters actually predicted at the time
+
+        This is still valuable for learning weather prediction patterns, but differs
+        from the original concept of learning from the forecasting process itself.
+
+        Future enhancement: Integrate actual historical forecast data from NOAA/ECMWF
+        archives for periods where it's available (typically 1990s onwards).
+
         This is the key function for RL training - it gets pairs of:
-        - What was forecasted for day D
-        - What actually happened on day D
+        - What was forecasted/reanalyzed for day D (currently: ERA5 reanalysis)
+        - What actually happened on day D (observations)
 
         Args:
             latitude: Location latitude

@@ -9,6 +9,9 @@ from .default import (
     get_production_config,
     get_24gb_config,
     get_extended_locations_config,
+    get_historical_config,
+    get_climate_config,
+    auto_config,
 )
 
 __all__ = [
@@ -18,4 +21,7 @@ __all__ = [
     "get_production_config",
     "get_24gb_config",
     "get_extended_locations_config",
+    "get_historical_config",
+    "get_climate_config",
+    "auto_config",
 ]
