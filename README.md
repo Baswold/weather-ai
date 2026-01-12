@@ -4,7 +4,7 @@ A framework for training weather prediction models using **sequential temporal r
 
 ## Overview
 
-Unlike traditional supervised learning that trains on static shuffled datasets, this framework trains models to "live through" weather history chronologically. The model experiences each day from the earliest available forecast data (2016 with Open-Meteo) up to the present, learning and adapting as it goes.
+Unlike traditional supervised learning that trains on static shuffled datasets, this framework trains models to "live through" weather history chronologically. The model experiences each day from the earliest available data (1940-1950 with Open-Meteo ERA5/ERA5-Land) up to the present, learning and adapting as it goes.
 
 ### Key Features
 
@@ -85,15 +85,22 @@ python train.py --config low_memory --epochs 1
 Configuration presets:
 - `low_memory`: 3 locations, 1 year, small model (for testing)
 - `default`: 10 locations, 5 years, medium model
-- `production`: 20+ locations, 2016-2024, large model
+- `production`: 20+ locations, 2010-2024, large model (15 years)
+- `24gb`: 20+ locations, 2016-2024, very large model (~24GB RAM)
+- `historical`: 20+ locations, 1950-2024, large model (75 years!)
+- `climate`: 20+ locations, 1970-2024, large model (55 years, climate analysis)
 
 ## Data Sources
 
 | Source | Type | Coverage | Notes |
 |--------|------|----------|-------|
-| [Open-Meteo Historical Forecast API](https://open-meteo.com/en/docs/historical-forecast-api) | Forecast + Actual | Global, 2016+ | Free, no API key needed |
+| [Open-Meteo Archive API](https://open-meteo.com/en/docs/historical-weather-api) | Reanalysis (ERA5/ERA5-Land) | Global, **1940-present** (80+ years!) | Free, no API key needed, 10-25km resolution |
 | [NOAA NCEI](https://www.ncei.noaa.gov/) | Observations | US focused | Primarily actual weather |
 | [NOAA NDFD](https://www.ncei.noaa.gov/products/weather-climate-models/national-digital-forecast-database) | Forecasts | US | National Digital Forecast Database |
+
+**Note**: Open-Meteo provides:
+- **ERA5** data from 1940 onwards (25km resolution)
+- **ERA5-Land** data from 1950 onwards (10km resolution, higher quality)
 
 ## Model Architecture
 
@@ -147,13 +154,15 @@ for year in [2016, 2017, ..., 2024]:
 
 ## Hardware Requirements
 
-| Config | RAM | GPU | Training Time |
-|--------|-----|-----|---------------|
-| low_memory | 2 GB | Optional | ~10 min |
-| default | 4 GB | Optional | ~1 hour |
-| production | 8 GB+ | Optional | ~4-8 hours |
-| **24gb** | **24 GB** | **Optional** | **~8-12 hours** |
-| **extended** | **24 GB** | **Optional** | **~12-24 hours** |
+| Config | RAM | GPU | Training Time | Data Range |
+|--------|-----|-----|---------------|------------|
+| low_memory | 2 GB | Optional | ~10 min | 2023 (1 year) |
+| default | 4 GB | Optional | ~1 hour | 2020-2024 (5 years) |
+| production | 8 GB+ | Optional | ~6-10 hours | 2010-2024 (15 years) |
+| **24gb** | **24 GB** | **Optional** | **~8-12 hours** | **2016-2024 (9 years)** |
+| **extended** | **24 GB** | **Optional** | **~12-24 hours** | **2016-2024 (100+ locations)** |
+| **historical** | **32 GB+** | **Optional** | **~2-4 days** | **1950-2024 (75 years!)** |
+| **climate** | **32 GB+** | **Optional** | **~1-2 days** | **1970-2024 (55 years)** |
 
 ### 24GB Configuration
 
@@ -187,12 +196,45 @@ python train.py --config extended --epochs 5
 
 This covers all climate zones: tropical, desert, temperate, continental, polar, mountain, and highland climates across 6 continents.
 
+### Historical Configuration (NEW!)
+
+For maximum temporal coverage using 75 years of ERA5-Land data:
+
+```bash
+python train.py --config historical --epochs 2
+```
+
+**What makes this special:**
+- **1950-2024**: 75 years of consistent global weather data
+- **Climate learning**: Model learns multi-decadal patterns (El Niño cycles, PDO, AMO)
+- **Extreme events**: Better coverage of rare weather events across decades
+- **Trend detection**: Can learn long-term climate change signals
+
+**Memory requirements:**
+- ~32GB+ RAM for the full dataset
+- Replay buffer: ~20GB (20M transitions)
+- Training time: 2-4 days for 2 epochs
+
+### Climate Analysis Configuration (NEW!)
+
+For climate-focused research with 55 years of data:
+
+```bash
+python train.py --config climate --epochs 3
+```
+
+**Optimized for:**
+- Climate change impact analysis (1970s onwards)
+- Decadal oscillation patterns
+- 30-day historical windows for monthly pattern recognition
+- Balanced between coverage and computation
+
 ## Limitations
 
 - **No physics knowledge**: Model learns purely from data, without explicit atmospheric physics
 - **Single-location prediction**: Each location is predicted independently (no spatial relationships)
-- **Historical availability**: Forecast data available from ~2016 with Open-Meteo
-- **Computational cost**: Training through decades of data requires significant compute
+- **Data is reanalysis, not forecasts**: Open-Meteo provides ERA5 reanalysis (hindcasts) rather than original forecasts
+- **Computational cost**: Training through 75 years of data requires significant compute and time
 
 ## Future Extensions
 
