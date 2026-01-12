@@ -1,0 +1,27 @@
+# RL Weather - Requirements
+
+# Core dependencies
+torch>=2.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Data handling
+pyarrow>=14.0.0
+requests>=2.31.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Configuration
+pyyaml>=6.0
+
+# Utilities
+psutil>=5.9.0
+
+# Optional: for faster data loading
+# fastparquet>=2024.0.0  # Alternative to pyarrow
+
+# Development dependencies (optional)
+# pytest>=7.4.0
+# black>=23.0.0
+# mypy>=1.5.0
