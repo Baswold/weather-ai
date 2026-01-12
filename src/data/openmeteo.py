@@ -163,7 +163,6 @@ class OpenMeteoClient:
             "end_date": end_date,
             "hourly": ",".join(variables),
             "timezone": "auto",
-            "forecast_days": 1,  # Only need next day forecast
         }
 
         response = self.session.get(
