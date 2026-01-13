@@ -207,7 +207,7 @@ def estimate_memory_usage(config: Any) -> Dict[str, float]:
 
     Returns breakdown in GB.
     """
-    from ..models import TransformerConfig
+    from src.models import TransformerConfig
 
     # Model memory
     model_config = TransformerConfig(

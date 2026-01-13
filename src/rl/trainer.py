@@ -99,7 +99,12 @@ class RLTrainer:
             config: Training configuration
         """
         self.config = config or TrainerConfig()
-        self.device = torch.device(self.config.device)
+        # Resolve 'auto' to actual device
+        if self.config.device == 'auto':
+            device_str = 'cuda' if torch.cuda.is_available() else 'cpu'
+        else:
+            device_str = self.config.device
+        self.device = torch.device(device_str)
 
         # Move model to device
         self.model = model.to(self.device)
@@ -305,10 +310,11 @@ class RLTrainer:
         Returns:
             Training metrics for this day
         """
-        # Convert to tensors
-        history = torch.from_numpy(batch.history).float().to(self.device)
-        current = torch.from_numpy(batch.current_forecast).float().to(self.device)
-        target = torch.from_numpy(batch.target).float().to(self.device)
+        # Convert to tensors (ensure float64 first for numpy compatibility)
+        import numpy as np
+        history = torch.from_numpy(np.asarray(batch.history, dtype=np.float64)).float().to(self.device)
+        current = torch.from_numpy(np.asarray(batch.current_forecast, dtype=np.float64)).float().to(self.device)
+        target = torch.from_numpy(np.asarray(batch.target, dtype=np.float64)).float().to(self.device)
 
         batch_size = history.shape[0]
 
@@ -419,7 +425,7 @@ class RLTrainer:
 
         # Update priorities (for prioritized replay)
         with torch.no_grad():
-            td_errors = (current_q - target_q_value).squeeze().cpu().numpy()
+            td_errors = (current_q - target_q_value).detach().cpu().numpy().flatten()
             self.replay_buffer.update_priorities(indices, td_errors)
 
         return actor_loss.item(), critic_loss.item()
