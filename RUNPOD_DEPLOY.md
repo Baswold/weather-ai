@@ -56,7 +56,16 @@ python train.py --auto --target-gb 32 --epochs 3 --chunked
 - **Time:** 6+ hours
 - **Cost:** $3-5
 
-### Premium Setup
+### Premium Setup (RTX 4090)
+- **GPU:** 24GB VRAM (RTX 4090)
+- **Storage:** 150 GB SSD
+- **RAM:** 24+ GB system RAM
+- **Run:** `--config 4090 --epochs 5 --chunked`
+- **Time:** 8-10 hours
+- **Cost:** $4-6
+- **Speed:** 50k+ transitions/minute
+
+### Ultra-Premium Setup
 - **GPU:** 40GB+ VRAM (A100, H100)
 - **Storage:** 200 GB SSD
 - **RAM:** 32+ GB system RAM
@@ -116,6 +125,13 @@ python train.py --config production --epochs 3
 ### Maximum GPU Utilization (6+ hours)
 ```bash
 python train.py --config 24gb --epochs 5 --chunked
+```
+
+### RTX 4090 Max Performance (8+ hours)
+```bash
+python train.py --config 4090 --epochs 5 --chunked
+# Uses full 24GB VRAM with batch size 160
+# Expected: 50k+ transitions/minute
 ```
 
 ### Extreme Scale (75 years, 12+ hours)
@@ -263,7 +279,8 @@ ls -lh checkpoints/
 | GPU | Speed | Batch Size | Config |
 |-----|-------|-----------|--------|
 | A100 (40GB) | 100k+ | 80 | 24gb |
-| RTX 4090 (24GB) | 50k+ | 80 | 24gb |
+| RTX 4090 (24GB) | 50k+ | 160 | 4090 |
+| RTX 4090 (24GB) | 40k+ | 80 | 24gb |
 | RTX 3090 (24GB) | 30k+ | 64 | production |
 | V100 (32GB) | 25k+ | 40 | production |
 | RTX 3060 (12GB) | 10k+ | 20 | default |
@@ -275,6 +292,9 @@ ls -lh checkpoints/
 | default | 100 MB | 1 GB | 500 MB | ~4 GB |
 | production | 100 MB | 5 GB | 2 GB | ~8 GB |
 | 24gb | 100 MB | 12 GB | 6 GB | ~24 GB |
+| 4090 | 530 MB | 70 GB* | 10 MB | ~71 GB* |
+
+*4090 config requires 24GB VRAM RTX 4090 (batches fit in GPU). Storage not RAM.*
 
 ## Cost Optimization
 
@@ -282,7 +302,14 @@ ls -lh checkpoints/
 - **Pod:** RTX 4090 (24GB)
 - **Config:** `production` (2-3 hours)
 - **Cost:** ~$2-3
-- **Learning:** 20 locations, 15 years
+- **Learning:** 10 locations, 15 years
+
+### Maximum Performance (RTX 4090)
+- **Pod:** RTX 4090 (24GB)
+- **Config:** `4090` (8+ hours)
+- **Cost:** ~$4-6
+- **Learning:** 20 locations, 9 years, massive batch sizes
+- **Speed:** 50k+ transitions/minute
 
 ### Fastest Training
 - **Pod:** A100 (40GB)

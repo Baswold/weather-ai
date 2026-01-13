@@ -409,7 +409,7 @@ class RLTrainer:
         self.critic_optimizer.step()
 
         # Actor update (delayed for TD3)
-        actor_loss = 0
+        actor_loss = torch.tensor(0.0)
         if self.current_step % self.config.policy_freq == 0:
             self.actor_optimizer.zero_grad()
 
@@ -428,7 +428,7 @@ class RLTrainer:
             td_errors = (current_q - target_q_value).detach().cpu().numpy().flatten()
             self.replay_buffer.update_priorities(indices, td_errors)
 
-        return actor_loss.item(), critic_loss.item()
+        return actor_loss.item() if isinstance(actor_loss, torch.Tensor) else actor_loss, critic_loss.item()
 
     def _soft_update(self):
         """Soft update target networks: target = tau * model + (1-tau) * target"""

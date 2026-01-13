@@ -11,6 +11,7 @@ from .default import (
     get_extended_locations_config,
     get_historical_config,
     get_climate_config,
+    get_4090_config,
     auto_config,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "get_extended_locations_config",
     "get_historical_config",
     "get_climate_config",
+    "get_4090_config",
     "auto_config",
 ]

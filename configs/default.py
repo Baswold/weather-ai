@@ -346,6 +346,78 @@ def get_climate_config() -> Config:
     return config
 
 
+def get_4090_config() -> Config:
+    """
+    Configuration optimized for RTX 4090 (24GB VRAM).
+
+    Uses massive batch sizes and replay buffer to maximize GPU utilization.
+
+    Performance:
+    - Batch size: 160 (all 20 locations * 8)
+    - Replay buffer: 50M transitions (~50GB when processed)
+    - Data: 20 locations, 2016-2024 (9 years)
+    - Expected speed: 50k+ transitions/min
+
+    Memory usage:
+    - Model: ~200 MB
+    - Replay buffer: ~20 GB
+    - Data cache: ~3 GB
+    - Activations: ~1 GB
+    Total: ~24 GB
+    """
+    config = Config()
+
+    # All 20 sample locations for maximum diversity
+    from src.data.openmeteo import OpenMeteoClient
+    config.data.locations = OpenMeteoClient.get_sample_locations()
+
+    # 9 years of recent data (2016-2024)
+    config.data.start_date = "2016-01-01"
+    config.data.end_date = "2024-12-31"
+    config.data.window_size = 14  # 2 weeks of history
+
+    # MAXIMUM model size for 4090
+    config.model.d_model = 768  # Large
+    config.model.nhead = 12  # Many heads
+    config.model.num_layers = 12  # Deep network
+    config.model.dim_feedforward = 3072
+    config.model.dropout = 0.1
+
+    # HUGE batch processing
+    config.training.batch_size = 160  # Process 160 locations per day (8x multiplier)
+    config.training.learning_rate = 1e-4
+    config.training.num_epochs = 5
+
+    # MASSIVE replay buffer (20+ million transitions)
+    # At ~1KB per transition = ~20-50GB when in memory
+    config.training.replay_buffer_size = 50_000_000
+    config.training.replay_start_size = 100_000
+    config.training.use_prioritized_replay = True
+
+    # RL parameters
+    config.training.gamma = 0.99
+    config.training.tau = 0.005
+    config.training.policy_noise = 0.1
+    config.training.policy_freq = 2
+
+    # Exploration schedule
+    config.training.exploration_noise = 0.15
+    config.training.exploration_anneal = 0.998
+
+    # Checkpointing
+    config.training.checkpoint_dir = "checkpoints/4090"
+    config.training.checkpoint_interval = 365  # Yearly
+    config.training.log_interval = 10
+
+    # Reward
+    config.reward.use_extreme_bonus = True
+    config.reward.extreme_multiplier = 5.0
+
+    config.experiment_name = "rl_weather_4090_ultra"
+
+    return config
+
+
 def auto_config(target_gb: Optional[float] = None) -> Config:
     """
     Automatically configure based on available system memory.

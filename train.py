@@ -33,7 +33,7 @@ from src.memory import MemoryMonitor, print_memory_estimation
 from configs import (
     Config, get_default_config, get_low_memory_config, get_production_config,
     get_24gb_config, get_extended_locations_config, get_historical_config,
-    get_climate_config, auto_config
+    get_climate_config, get_4090_config, auto_config
 )
 
 
@@ -62,7 +62,7 @@ Config presets:
     parser.add_argument(
         "--config", "-c",
         type=str,
-        choices=["default", "low_memory", "production", "24gb", "extended", "historical", "climate"],
+        choices=["default", "low_memory", "production", "24gb", "extended", "historical", "climate", "4090"],
         default="low_memory",
         help="Configuration preset to use",
     )
@@ -195,6 +195,7 @@ def main():
             "extended": get_extended_locations_config,
             "historical": get_historical_config,
             "climate": get_climate_config,
+            "4090": get_4090_config,
         }
 
         # If no config specified, ask user for memory and auto-configure

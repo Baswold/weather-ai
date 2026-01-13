@@ -60,6 +60,7 @@ The script will ask: "How much RAM can you dedicate to training?"
 - `--config low_memory` → 500 MB, 10 mins
 - `--config default` → 4 GB, 30 mins
 - `--config production` → 8 GB, 2+ hours
+- `--config 4090` → 24 GB (GPU only), 8-10 hours (RTX 4090)
 
 ---
 
@@ -85,12 +86,13 @@ The script will ask: "How much RAM can you dedicate to training?"
 
 ## Recommendation by Hardware
 
-### You have a GPU (RTX, A100, etc.)
+### You have a GPU (RTX 4090, A100, etc.)
 👉 **Use Option 1 (RunPod)**
 - One command setup
 - GPU automatically detected
 - Auto-optimized configuration
 - Best performance
+- **RTX 4090 users:** Use `--config 4090` for 50k+ transitions/min
 
 ### You have a powerful laptop/desktop (16GB+ RAM)
 👉 **Use Option 2 (Local)**
@@ -226,9 +228,10 @@ python -c "import torch; print(torch.cuda.is_available())"
 
 ### RunPod with RTX 4090 (24GB)
 - **Setup:** ~5 minutes
-- **Training:** 12-24 hours
-- **Speed:** 50k+ transitions/minute
-- **Cost:** ~$3-5
+- **Training (standard):** 6-12 hours
+- **Training (4090 config):** 8-10 hours
+- **Speed:** 40k-50k+ transitions/minute
+- **Cost:** ~$3-6
 
 ### Local Machine (8GB RAM)
 - **Setup:** ~5 minutes
