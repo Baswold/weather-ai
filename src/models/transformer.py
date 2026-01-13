@@ -56,23 +56,31 @@ class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
+        self.d_model = d_model
+        self.max_len = max_len
         self.dropout = nn.Dropout(p=dropout)
 
-        # Create positional encoding matrix
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        # Create positional encoding matrix (will be computed on first forward pass)
+        self.register_buffer("pe", None)
 
-        # Calculate the divisors
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+    def _ensure_pe(self, seq_len: int):
+        """Ensure positional encoding is large enough for the sequence."""
+        if self.pe is None or self.pe.size(1) < seq_len:
+            # Create positional encoding matrix with enough room
+            max_len = max(self.max_len, seq_len)
+            pe = torch.zeros(max_len, self.d_model, device=self.pe.device if self.pe is not None else 'cpu')
+            position = torch.arange(0, max_len, dtype=torch.float, device=pe.device).unsqueeze(1)
 
-        # Apply sin to even positions, cos to odd positions
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
+            # Calculate the divisors
+            div_term = torch.exp(
+                torch.arange(0, self.d_model, 2).float() * (-math.log(10000.0) / self.d_model)
+            ).to(device=pe.device)
 
-        pe = pe.unsqueeze(0)  # (1, max_len, d_model)
-        self.register_buffer("pe", pe)
+            # Apply sin to even positions, cos to odd positions
+            pe[:, 0::2] = torch.sin(position * div_term)
+            pe[:, 1::2] = torch.cos(position * div_term)
+
+            self.register_buffer("pe", pe.unsqueeze(0))  # (1, max_len, d_model)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -82,6 +90,7 @@ class PositionalEncoding(nn.Module):
         Returns:
             (batch_size, seq_len, d_model) with positional encoding added
         """
+        self._ensure_pe(x.size(1))
         x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
 
