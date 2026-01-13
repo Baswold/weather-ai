@@ -136,6 +136,48 @@ Config presets:
     return parser.parse_args()
 
 
+def get_memory_from_user():
+    """Ask user for available memory and return target GB."""
+    print("\n" + "="*70)
+    print("MEMORY CONFIGURATION")
+    print("="*70)
+
+    import psutil
+    mem = psutil.virtual_memory()
+    total_gb = mem.total / (1024**3)
+    available_gb = mem.available / (1024**3)
+
+    print(f"System RAM available: {available_gb:.1f} GB (total: {total_gb:.1f} GB)")
+
+    # Check for GPU
+    cuda_available = torch.cuda.is_available()
+    if cuda_available:
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        print(f"GPU VRAM available: {gpu_memory:.1f} GB ({torch.cuda.get_device_name(0)})")
+        print("\nNote: Training primarily uses system RAM, not GPU VRAM")
+
+    while True:
+        user_input = input(
+            f"\nHow much RAM can you dedicate to training (in GB)? "
+            f"[default: {int(available_gb * 0.75)}]: "
+        ).strip()
+
+        if not user_input:
+            return available_gb * 0.75
+
+        try:
+            target_gb = float(user_input)
+            if target_gb <= 0:
+                print("Please enter a positive number")
+                continue
+            if target_gb > total_gb:
+                print(f"That exceeds your total system RAM ({total_gb:.1f} GB)")
+                continue
+            return target_gb
+        except ValueError:
+            print("Please enter a valid number")
+
+
 def main():
     """Main training function."""
     args = parse_args()
@@ -154,7 +196,23 @@ def main():
             "historical": get_historical_config,
             "climate": get_climate_config,
         }
-        config = config_map[args.config]()
+
+        # If no config specified, ask user for memory and auto-configure
+        if args.config == "low_memory":
+            # Check if user wants to skip the input (e.g., in CI/testing)
+            import os
+            if "CI" not in os.environ and sys.stdin.isatty():
+                print("\nWould you like to auto-configure based on your available memory?")
+                response = input("(y/N): ").strip().lower()
+                if response == "y":
+                    target_gb = get_memory_from_user()
+                    config = auto_config(target_gb=target_gb)
+                else:
+                    config = get_low_memory_config()
+            else:
+                config = get_low_memory_config()
+        else:
+            config = config_map[args.config]()
 
     # Override with command line args
     if args.epochs is not None:

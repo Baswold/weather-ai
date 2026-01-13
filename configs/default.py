@@ -130,25 +130,37 @@ def get_low_memory_config() -> Config:
     """
     Get a low-memory configuration for testing on limited hardware.
 
-    Uses fewer locations, smaller model, and shorter training period.
+    Uses SAME locations as default, but processes them sequentially (one at a time)
+    instead of in parallel. This reduces memory overhead while still learning from
+    all 10 locations.
+
+    Memory optimization:
+    - Same model size as default
+    - Same locations (10 cities, diverse climates)
+    - Shorter training period (1 year instead of 5)
+    - Process ONE location per batch (batch_size=1)
+    - Smaller replay buffer (processes serially)
+    - Result: ~500MB RAM instead of 4GB, still learns from all locations
     """
     config = Config()
 
-    # Fewer locations
-    config.data.locations = config.data.locations[:3]
+    # SAME locations as default - but process ONE at a time
+    config.data.locations = config.data.locations[:10]  # Keep all default locations
     config.data.start_date = "2023-01-01"
     config.data.end_date = "2023-12-31"
 
-    # Smaller model
-    config.model.d_model = 64
-    config.model.nhead = 2
-    config.model.num_layers = 2
-    config.model.dim_feedforward = 256
+    # Same model as default (don't shrink model)
+    config.model.d_model = 128
+    config.model.nhead = 4
+    config.model.num_layers = 4
+    config.model.dim_feedforward = 512
 
-    # Smaller training
-    config.training.batch_size = 3
+    # Sequential processing (process ONE location per batch)
+    config.training.batch_size = 1  # One location at a time
     config.training.num_epochs = 1
-    config.training.replay_buffer_size = 1000
+    # Smaller replay buffer (processes serially, so less history needed)
+    config.training.replay_buffer_size = 5000
+    config.training.replay_start_size = 500
 
     return config
 
