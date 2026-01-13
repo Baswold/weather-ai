@@ -43,6 +43,7 @@ class TrainerConfig:
     batch_size: int = 40
     replay_buffer_size: int = 100000
     replay_start_size: int = 1000
+    updates_per_day: int = 1  # Multiple gradient updates per batch for GPU utilization
 
     # RL-specific
     gamma: float = 0.99  # Discount factor
@@ -342,7 +343,10 @@ class RLTrainer:
         critic_loss = 0
 
         if self.replay_buffer.is_ready(self.config.batch_size):
-            actor_loss, critic_loss = self._update()
+            # Do multiple gradient updates per day for better GPU utilization
+            updates = self.config.updates_per_day
+            for _ in range(updates):
+                actor_loss, critic_loss = self._update()
 
         return {
             "reward": avg_reward,

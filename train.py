@@ -33,7 +33,7 @@ from src.memory import MemoryMonitor, print_memory_estimation
 from configs import (
     Config, get_default_config, get_low_memory_config, get_production_config,
     get_24gb_config, get_extended_locations_config, get_historical_config,
-    get_climate_config, get_4090_config, auto_config
+    get_climate_config, get_4090_config, get_4090_max_config, auto_config
 )
 
 
@@ -56,13 +56,15 @@ Config presets:
   extended      100+ locations, 2016-2024, ~24GB RAM
   historical    20 locations, 1950-2024, ~32GB+ RAM (75 years of data!)
   climate       20 locations, 1970-2024, ~32GB+ RAM (55 years, climate analysis)
+  4090          20 locations, 2016-2024, large model for 4090
+  4090_max      20 locations, 2016-2024, MAX GPU utilization (1B+ params, 10 updates/day)
         """
     )
 
     parser.add_argument(
         "--config", "-c",
         type=str,
-        choices=["default", "low_memory", "production", "24gb", "extended", "historical", "climate", "4090"],
+        choices=["default", "low_memory", "production", "24gb", "extended", "historical", "climate", "4090", "4090_max"],
         default="low_memory",
         help="Configuration preset to use",
     )
@@ -196,6 +198,7 @@ def main():
             "historical": get_historical_config,
             "climate": get_climate_config,
             "4090": get_4090_config,
+            "4090_max": get_4090_max_config,
         }
 
         # If no config specified, ask user for memory and auto-configure
@@ -370,6 +373,7 @@ def main():
             batch_size=config.training.batch_size,
             replay_buffer_size=config.training.replay_buffer_size,
             replay_start_size=config.training.replay_start_size,
+            updates_per_day=config.training.updates_per_day,
             gamma=config.training.gamma,
             tau=config.training.tau,
             policy_noise=config.training.policy_noise,

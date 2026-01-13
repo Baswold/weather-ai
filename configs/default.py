@@ -61,6 +61,7 @@ class TrainingConfig:
     batch_size: int = 32  # Locations per day
     learning_rate: float = 1e-4
     num_epochs: int = 2
+    updates_per_day: int = 1  # Number of gradient updates per day (higher = more GPU utilization)
 
     # Replay buffer
     replay_buffer_size: int = 50000
@@ -342,6 +343,72 @@ def get_climate_config() -> Config:
 
     config.experiment_name = "rl_weather_climate_55yr"
     config.training.checkpoint_dir = "checkpoints/climate"
+
+    return config
+
+
+def get_4090_max_config() -> Config:
+    """
+    MAXIMUM GPU config for RTX 4090 (24GB VRAM).
+
+    This config is designed to SATURATE the GPU by:
+    - Massive model (1B+ parameters)
+    - Huge batch size (512+)
+    - Multiple gradient updates per day
+    - All data kept on GPU
+
+    Expected GPU usage: 20-22 GB VRAM
+    """
+    config = Config()
+
+    # All 20 sample locations
+    from src.data.openmeteo import OpenMeteoClient
+    config.data.locations = OpenMeteoClient.get_sample_locations()
+
+    # 9 years of data
+    config.data.start_date = "2016-01-01"
+    config.data.end_date = "2024-12-31"
+    config.data.window_size = 30  # 30 days of history
+
+    # MASSIVE model - 1B+ parameters to fill the GPU
+    config.model.d_model = 1024  # Very large
+    config.model.nhead = 16  # Many attention heads
+    config.model.num_layers = 16  # Very deep
+    config.model.dim_feedforward = 4096  # Wide FF layers
+    config.model.dropout = 0.1
+
+    # HUGE batch size
+    config.training.batch_size = 512  # Process 512 samples per update
+    config.training.learning_rate = 3e-4  # Higher LR for larger model
+    config.training.num_epochs = 10  # More passes
+
+    # Multiple updates per day to maximize GPU usage
+    config.training.updates_per_day = 10  # Do 10 gradient updates per day
+
+    # Large replay buffer (stored on GPU if possible)
+    config.training.replay_buffer_size = 100_000_000
+    config.training.replay_start_size = 50_000
+
+    # RL parameters
+    config.training.gamma = 0.99
+    config.training.tau = 0.005
+    config.training.policy_noise = 0.1
+    config.training.policy_freq = 2
+
+    # Exploration
+    config.training.exploration_noise = 0.2
+    config.training.exploration_anneal = 0.9995
+
+    # Checkpointing
+    config.training.checkpoint_dir = "/workspace/checkpoints/4090_max"
+    config.training.checkpoint_interval = 365
+    config.training.log_interval = 10
+
+    # Reward
+    config.reward.use_extreme_bonus = True
+    config.reward.extreme_multiplier = 5.0
+
+    config.experiment_name = "rl_weather_4090_max"
 
     return config
 
