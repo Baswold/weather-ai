@@ -21,6 +21,7 @@ Example usage:
 """
 
 import datetime
+import time
 from typing import Optional, List, Dict, Any
 import requests
 import numpy as np
@@ -58,16 +59,80 @@ class OpenMeteoClient:
         f"{k}_forecast": f"Forecasted {v}" for k, v in VARIABLES.items()
     }
 
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 30, request_delay: float = 1.0, max_retries: int = 5):
         """
         Initialize the Open-Meteo client.
 
         Args:
             timeout: Request timeout in seconds
+            request_delay: Delay between requests in seconds (to avoid rate limiting)
+            max_retries: Maximum number of retries for failed requests
         """
         self.timeout = timeout
+        self.request_delay = request_delay
+        self.max_retries = max_retries
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "RL-Weather/1.0"})
+        self._last_request_time = 0
+
+    def _make_request_with_retry(self, url: str, params: Dict) -> Dict:
+        """
+        Make HTTP request with rate limiting and retry logic.
+
+        Args:
+            url: The URL to request
+            params: Query parameters
+
+        Returns:
+            JSON response dict
+
+        Raises:
+            requests.HTTPError: If all retries fail
+        """
+        for attempt in range(self.max_retries):
+            # Rate limiting: wait between requests
+            time_since_last = time.time() - self._last_request_time
+            if time_since_last < self.request_delay:
+                time.sleep(self.request_delay - time_since_last)
+
+            try:
+                response = self.session.get(
+                    url,
+                    params=params,
+                    timeout=self.timeout,
+                )
+                self._last_request_time = time.time()
+
+                # Handle rate limiting specifically
+                if response.status_code == 429:
+                    wait_time = (attempt + 1) * 5  # 5, 10, 15, 20, 25 seconds
+                    print(f"Rate limited. Waiting {wait_time}s before retry {attempt + 1}/{self.max_retries}...")
+                    time.sleep(wait_time)
+                    continue
+
+                response.raise_for_status()
+                return response.json()
+
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 429 and attempt < self.max_retries - 1:
+                    wait_time = (attempt + 1) * 5
+                    print(f"Rate limited. Waiting {wait_time}s before retry {attempt + 1}/{self.max_retries}...")
+                    time.sleep(wait_time)
+                    continue
+                if attempt == self.max_retries - 1:
+                    raise
+                print(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                time.sleep(2 ** attempt)  # Exponential backoff
+
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.Timeout,
+                    requests.exceptions.RequestException) as e:
+                if attempt == self.max_retries - 1:
+                    raise
+                print(f"Request failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                time.sleep(2 ** attempt)
+
+        raise requests.HTTPError("Max retries exceeded")
 
     def get_forecast_and_actual(
         self,
@@ -105,13 +170,7 @@ class OpenMeteoClient:
         }
 
         # Fetch the data
-        response = self.session.get(
-            f"{self.BASE_URL}/archive",
-            params=params,
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        data = response.json()
+        data = self._make_request_with_retry(f"{self.BASE_URL}/archive", params)
 
         # Parse into DataFrame
         df = self._parse_response(data, forecast_horizon)
@@ -165,13 +224,7 @@ class OpenMeteoClient:
             "timezone": "auto",
         }
 
-        response = self.session.get(
-            f"{self.BASE_URL}/archive",
-            params=params,
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
-        data = response.json()
+        data = self._make_request_with_retry(f"{self.BASE_URL}/archive", params)
 
         return self._parse_verification_data(data, variables)
 
