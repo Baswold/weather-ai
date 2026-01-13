@@ -404,8 +404,8 @@ def get_4090_config() -> Config:
     config.training.exploration_noise = 0.15
     config.training.exploration_anneal = 0.998
 
-    # Checkpointing
-    config.training.checkpoint_dir = "checkpoints/4090"
+    # Checkpointing (use /workspace for RunPod persistence)
+    config.training.checkpoint_dir = "/workspace/checkpoints/4090"
     config.training.checkpoint_interval = 365  # Yearly
     config.training.log_interval = 10
 
