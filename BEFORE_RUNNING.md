@@ -11,7 +11,7 @@ pip install -r requirements.txt
 
 ### 2. Verify Setup (2 mins)
 ```bash
-python verify_setup.py
+python tests/verify_setup.py
 ```
 
 This checks:
@@ -102,7 +102,7 @@ The TODO.md has many items, but these are **optional enhancements**, not blocker
 pip install -r requirements.txt
 
 # 2. Verify everything works
-python verify_setup.py
+python tests/verify_setup.py
 
 # 3. Start training
 python train.py --auto
@@ -127,7 +127,7 @@ That's it! The script will ask for memory amount and configure automatically.
 - Cached data will be used if available
 
 **Error: "Can't convert np.ndarray"**
-- Run: `python verify_setup.py` first
+- Run: `python tests/verify_setup.py` first
 - This should be fixed now
 
 ---
@@ -187,8 +187,8 @@ Once a run completes:
 
 ## Need Help?
 
-- **API working?** → Run `python test_api_consistency.py`
-- **Data format?** → Run `python test_schema_comparison.py`
+- **API working?** → Run `python tests/test_api_consistency.py`
+- **Data format?** → Run `python tests/test_schema_comparison.py`
 - **Memory issues?** → Use smaller config
 - **Want details?** → Read `SETUP.md`
 - **About the project?** → Read `CONCEPT.md`
@@ -197,4 +197,4 @@ Once a run completes:
 
 **Status: 🟢 Ready to Train**
 
-Your system is set up and ready. Run `python verify_setup.py` to confirm, then start training!
+Your system is set up and ready. Run `python tests/verify_setup.py` to confirm, then start training!

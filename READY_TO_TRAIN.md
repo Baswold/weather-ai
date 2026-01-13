@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 ### Step 2: Verify Setup
 ```bash
-python verify_setup.py
+python tests/verify_setup.py
 ```
 
 **Results on your system:**
@@ -207,8 +207,8 @@ python train.py --auto --target-gb 2
 ### "Verify setup fails"
 - Run each test individually:
   ```bash
-  python test_api_consistency.py
-  python verify_setup.py
+  python tests/test_api_consistency.py
+  python tests/verify_setup.py
   ```
 
 ---
@@ -248,8 +248,8 @@ Everything is verified and tested:
 
 ## Need Help?
 
-- **Quick test:** `python verify_setup.py`
-- **API issues:** `python test_api_consistency.py`
+- **Quick test:** `python tests/verify_setup.py`
+- **API issues:** `python tests/test_api_consistency.py`
 - **Memory issues:** `python train.py --auto --target-gb 2`
 - **Full details:** Read `SETUP.md`
 - **Project info:** Read `CONCEPT.md`

@@ -32,7 +32,7 @@ Required packages:
 Run the pre-flight checklist:
 
 ```bash
-python verify_setup.py
+python tests/verify_setup.py
 ```
 
 This will test:
@@ -132,7 +132,7 @@ python train.py --auto --target-gb 16
 
 2. **Verify setup**
    ```bash
-   python verify_setup.py
+   python tests/verify_setup.py
    ```
 
 3. **Start with low memory config**
@@ -208,7 +208,7 @@ Examples:
 
 ### "No module named X"
 - Install dependencies: `pip install -r requirements.txt`
-- Or run verification: `python verify_setup.py`
+- Or run verification: `python tests/verify_setup.py`
 
 ### "CUDA out of memory"
 - Switch to CPU: `--device cpu`

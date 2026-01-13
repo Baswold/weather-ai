@@ -55,7 +55,7 @@ echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # Step 4: Verify setup
 echo -e "${BLUE}[4/6] Verifying setup...${NC}"
-python verify_setup.py > /tmp/setup_check.txt 2>&1
+python tests/verify_setup.py > /tmp/setup_check.txt 2>&1
 if grep -q "ALL PRE-FLIGHT CHECKS PASSED" /tmp/setup_check.txt; then
     echo -e "${GREEN}✓ Pre-flight checks passed${NC}"
 else
