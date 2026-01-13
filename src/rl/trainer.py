@@ -20,7 +20,7 @@ from tqdm import tqdm
 import numpy as np
 
 from ..models import ActorCritic, TransformerConfig
-from ..data import WeatherDataLoader, WeatherBatch, PrioritizedReplayBuffer
+from ..data import WeatherDataLoader, WeatherBatch, PrioritizedReplayBuffer, ChunkedWeatherDataLoader
 from .rewards import RewardFunction, MSEReward, WeightedReward
 from .metrics import PredictionMetrics, compute_metrics, MetricsTracker
 
@@ -209,6 +209,86 @@ class RLTrainer:
             # End of epoch
             avg_reward = np.mean(epoch_rewards)
             print(f"\nEpoch {epoch + 1} complete. Average reward: {avg_reward:.4f}")
+
+            # Anneal exploration
+            self.current_exploration_noise *= self.config.exploration_anneal
+
+        return history
+
+    def train_chunked(
+        self,
+        chunked_loader: ChunkedWeatherDataLoader,
+        num_epochs: int = 1,
+    ) -> Dict[str, List[float]]:
+        """
+        Train through weather history using chunked data loading.
+
+        This method is memory-efficient as it loads and cleans up data in chunks,
+        preventing storage buildup.
+
+        Args:
+            chunked_loader: ChunkedWeatherDataLoader that yields data chunks
+            num_epochs: Number of passes through all chunks
+
+        Returns:
+            Training history (rewards, metrics, etc.)
+        """
+        history = {
+            "dates": [],
+            "rewards": [],
+            "actor_losses": [],
+            "critic_losses": [],
+        }
+
+        for epoch in range(num_epochs):
+            print(f"\n{'='*70}")
+            print(f"EPOCH {epoch + 1}/{num_epochs}")
+            print(f"{'='*70}")
+
+            epoch_rewards = []
+
+            # Iterate through chunks
+            for chunk_idx, chunk_loader in enumerate(chunked_loader):
+                print(f"\nTraining on chunk {chunk_idx + 1}/{len(chunked_loader)}...")
+
+                # Train on all days in this chunk
+                chunk_rewards = []
+                day_iterator = list(chunk_loader)
+
+                for date, batch in tqdm(day_iterator, desc=f"Chunk {chunk_idx + 1}"):
+                    # Train on this day's batch
+                    metrics = self.train_day(batch)
+
+                    # Track history
+                    history["dates"].append(date)
+                    history["rewards"].append(metrics["reward"])
+                    history["actor_losses"].append(metrics.get("actor_loss", 0))
+                    history["critic_losses"].append(metrics.get("critic_loss", 0))
+                    chunk_rewards.append(metrics["reward"])
+                    epoch_rewards.append(metrics["reward"])
+
+                    # Logging
+                    if self.current_step % self.config.log_interval == 0:
+                        self._log_progress(date, metrics)
+
+                    # Checkpointing
+                    if self.current_step % self.config.checkpoint_interval == 0:
+                        self.save_checkpoint(f"checkpoint_epoch{epoch}_step{self.current_step}")
+
+                    self.current_step += 1
+
+                # Chunk summary
+                if chunk_rewards:
+                    avg_chunk_reward = np.mean(chunk_rewards)
+                    print(f"\nChunk {chunk_idx + 1} complete. Average reward: {avg_chunk_reward:.4f}")
+
+                # Data is automatically cleaned up by ChunkedWeatherDataLoader
+
+            # End of epoch
+            avg_reward = np.mean(epoch_rewards) if epoch_rewards else 0
+            print(f"\n{'='*70}")
+            print(f"Epoch {epoch + 1} complete. Average reward: {avg_reward:.4f}")
+            print(f"{'='*70}")
 
             # Anneal exploration
             self.current_exploration_noise *= self.config.exploration_anneal

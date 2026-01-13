@@ -94,6 +94,40 @@ Configuration presets:
 - `historical`: 20+ locations, 1950-2024, large model (75 years!)
 - `climate`: 20+ locations, 1970-2024, large model (55 years, climate analysis)
 
+### 4. Chunked Loading (Recommended for Large Datasets)
+
+**NEW**: To prevent storage buildup when training on large datasets, use chunked loading:
+
+```bash
+# Load and train on data in 1-year chunks, automatically cleaning up after each chunk
+python train.py --config historical --epochs 2 --chunked --chunk-years 1
+```
+
+**How it works:**
+1. Downloads data for the first year
+2. Trains on that year
+3. **Deletes the cached data** to free disk space
+4. Moves to the next year
+5. Repeats until complete
+
+**Benefits:**
+- ✓ Prevents disk space from filling up with cached data
+- ✓ Reduces memory usage by not holding all data at once
+- ✓ Perfect for 75-year historical runs
+- ✓ Automatically cleans up after each chunk
+
+**Options:**
+- `--chunked`: Enable chunked loading with automatic cleanup
+- `--chunk-years N`: Load N years at a time (default: 1)
+
+**Example for 75-year historical training:**
+```bash
+# Process 75 years in 5-year chunks
+python train.py --config historical --epochs 1 --chunked --chunk-years 5
+```
+
+This will divide the 75-year period (1950-2024) into 15 chunks of 5 years each, training on each and cleaning up before moving to the next.
+
 ## Data Sources
 
 | Source | Type | Coverage | Notes |

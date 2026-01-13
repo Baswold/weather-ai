@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 import torch
-from src.data import WeatherDataLoader, OpenMeteoClient
+from src.data import WeatherDataLoader, ChunkedWeatherDataLoader, OpenMeteoClient
 from src.models import ActorCritic, TransformerConfig
 from src.rl import RLTrainer, TrainerConfig, WeightedReward
 from src.utils import (
@@ -120,6 +120,19 @@ Config presets:
         help="Just test data pipeline and model, don't train",
     )
 
+    parser.add_argument(
+        "--chunked",
+        action="store_true",
+        help="Use chunked data loading to prevent storage buildup",
+    )
+
+    parser.add_argument(
+        "--chunk-years",
+        type=int,
+        default=1,
+        help="Number of years to load in each chunk (default: 1)",
+    )
+
     return parser.parse_args()
 
 
@@ -208,14 +221,33 @@ def main():
         print("Preparing Data")
         print("=" * 50)
 
-        data_loader = WeatherDataLoader(
-            locations=config.data.locations,
-            start_date=config.data.start_date,
-            end_date=config.data.end_date,
-            window_size=config.data.window_size,
-            data_dir=config.data.data_dir,
-            cache=config.data.cache_data,
-        )
+        # Use chunked loading if requested
+        use_chunked = args.chunked
+        if use_chunked:
+            print(f"Using CHUNKED data loading (chunk_years={args.chunk_years})")
+            print("Data will be automatically cleaned up after each chunk to prevent storage buildup")
+            chunked_loader = ChunkedWeatherDataLoader(
+                locations=config.data.locations,
+                start_date=config.data.start_date,
+                end_date=config.data.end_date,
+                window_size=config.data.window_size,
+                chunk_years=args.chunk_years,
+                data_dir=config.data.data_dir,
+                cleanup_after_chunk=True,
+            )
+            data_loader = None  # Will use chunked_loader instead
+        else:
+            print("Using standard data loading (all data loaded at once)")
+            print("WARNING: This may consume a lot of memory and disk space!")
+            data_loader = WeatherDataLoader(
+                locations=config.data.locations,
+                start_date=config.data.start_date,
+                end_date=config.data.end_date,
+                window_size=config.data.window_size,
+                data_dir=config.data.data_dir,
+                cache=config.data.cache_data,
+            )
+            chunked_loader = None
 
         # Create model
         print("\n" + "=" * 50)
@@ -240,7 +272,13 @@ def main():
 
         if args.test_only:
             print("\nTest mode - running quick forward pass...")
-            batch = next(iter(data_loader))[1]
+            if use_chunked:
+                # Get first chunk and first batch
+                first_chunk = next(iter(chunked_loader))
+                batch = next(iter(first_chunk))[1]
+            else:
+                batch = next(iter(data_loader))[1]
+
             history = torch.from_numpy(batch.history).float()
             current = torch.from_numpy(batch.current_forecast).float()
 
@@ -295,10 +333,18 @@ def main():
         import time
         start_time = time.time()
 
-        history = trainer.train(
-            data_loader=data_loader,
-            num_epochs=config.training.num_epochs,
-        )
+        if use_chunked:
+            # Use chunked training
+            history = trainer.train_chunked(
+                chunked_loader=chunked_loader,
+                num_epochs=config.training.num_epochs,
+            )
+        else:
+            # Use standard training
+            history = trainer.train(
+                data_loader=data_loader,
+                num_epochs=config.training.num_epochs,
+            )
 
         elapsed = time.time() - start_time
         print(f"\nTraining complete in {format_time(elapsed)}")

@@ -334,6 +334,162 @@ class WeatherDataLoader:
             "std": combined.std(axis=0),
         }
 
+    def cleanup_data(self, delete_cache_files: bool = True):
+        """
+        Clean up data to free memory and optionally delete cache files.
+
+        This should be called after training on a chunk of data to prevent
+        storage buildup.
+
+        Args:
+            delete_cache_files: If True, delete the parquet cache files from disk
+        """
+        # Clear in-memory cache
+        num_locations = len(self._data_cache)
+        self._data_cache.clear()
+        print(f"Cleared data cache for {num_locations} locations from memory")
+
+        # Delete cache files if requested
+        if delete_cache_files and self.data_dir.exists():
+            cache_files = list(self.data_dir.glob("*.parquet"))
+            deleted_count = 0
+            total_size = 0
+
+            for cache_file in cache_files:
+                try:
+                    # Check if this file belongs to our date range
+                    if f"{self.start_date.date()}_{self.end_date.date()}" in cache_file.name:
+                        file_size = cache_file.stat().st_size
+                        cache_file.unlink()
+                        deleted_count += 1
+                        total_size += file_size
+                except Exception as e:
+                    print(f"Warning: Failed to delete {cache_file}: {e}")
+
+            if deleted_count > 0:
+                size_mb = total_size / (1024 * 1024)
+                print(f"Deleted {deleted_count} cache files, freed {size_mb:.2f} MB of disk space")
+
+
+class ChunkedWeatherDataLoader:
+    """
+    Weather data loader that loads data in chunks to prevent memory/storage buildup.
+
+    This loader processes data in time chunks (e.g., year by year), automatically
+    cleaning up after each chunk to free memory and disk space.
+
+    Example:
+        loader = ChunkedWeatherDataLoader(
+            locations=[{"name": "NYC", "lat": 40.71, "lon": -74.01}],
+            start_date="2015-01-01",
+            end_date="2024-12-31",
+            chunk_years=1,  # Process 1 year at a time
+            cleanup_after_chunk=True,  # Delete data after processing
+        )
+
+        for chunk_loader in loader:
+            # Train on this chunk
+            for date, batch in chunk_loader:
+                train(batch)
+            # Data is automatically cleaned up after this iteration
+    """
+
+    def __init__(
+        self,
+        locations: List[Dict[str, float]],
+        start_date: str,
+        end_date: str,
+        window_size: int = 7,
+        chunk_years: int = 1,
+        variables: Optional[List[str]] = None,
+        data_dir: Optional[str] = None,
+        cleanup_after_chunk: bool = True,
+    ):
+        """
+        Initialize the chunked data loader.
+
+        Args:
+            locations: List of dicts with 'name', 'latitude', 'longitude'
+            start_date: Training start date (YYYY-MM-DD)
+            end_date: Training end date (YYYY-MM-DD)
+            window_size: Number of historical days to include as context
+            chunk_years: Number of years to load in each chunk
+            variables: List of weather variables to use
+            data_dir: Directory to cache downloaded data
+            cleanup_after_chunk: Whether to cleanup data after each chunk
+        """
+        self.locations = locations
+        self.start_date = pd.to_datetime(start_date)
+        self.end_date = pd.to_datetime(end_date)
+        self.window_size = window_size
+        self.chunk_years = chunk_years
+        self.variables = variables
+        self.data_dir = data_dir
+        self.cleanup_after_chunk = cleanup_after_chunk
+
+        # Create time chunks
+        self.chunks = self._create_time_chunks()
+        print(f"Created {len(self.chunks)} time chunks for chunked loading")
+        print(f"Cleanup after each chunk: {cleanup_after_chunk}")
+
+    def _create_time_chunks(self) -> List[Tuple[datetime, datetime]]:
+        """
+        Create time chunks for sequential loading.
+
+        Returns:
+            List of (start_date, end_date) tuples for each chunk
+        """
+        chunks = []
+        current_start = self.start_date
+
+        while current_start < self.end_date:
+            # Calculate chunk end date
+            chunk_end = current_start + pd.DateOffset(years=self.chunk_years)
+            # Don't exceed overall end date
+            chunk_end = min(chunk_end, self.end_date)
+
+            chunks.append((current_start, chunk_end))
+            current_start = chunk_end
+
+        return chunks
+
+    def __iter__(self):
+        """
+        Iterate through time chunks, yielding a WeatherDataLoader for each.
+
+        Each loader is automatically cleaned up after iteration if cleanup_after_chunk is True.
+        """
+        for i, (chunk_start, chunk_end) in enumerate(self.chunks):
+            print(f"\n{'='*60}")
+            print(f"Loading chunk {i+1}/{len(self.chunks)}: {chunk_start.date()} to {chunk_end.date()}")
+            print(f"{'='*60}")
+
+            # Create loader for this chunk
+            loader = WeatherDataLoader(
+                locations=self.locations,
+                start_date=chunk_start.strftime("%Y-%m-%d"),
+                end_date=chunk_end.strftime("%Y-%m-%d"),
+                window_size=self.window_size,
+                variables=self.variables,
+                data_dir=self.data_dir,
+                cache=True,  # Always cache for chunked loading
+            )
+
+            # Yield the loader
+            yield loader
+
+            # Cleanup after chunk if enabled
+            if self.cleanup_after_chunk:
+                print(f"\nCleaning up chunk {i+1}/{len(self.chunks)}...")
+                loader.cleanup_data(delete_cache_files=True)
+                # Force garbage collection
+                import gc
+                gc.collect()
+
+    def __len__(self) -> int:
+        """Return the number of chunks."""
+        return len(self.chunks)
+
 
 class ContinualDataLoader:
     """
